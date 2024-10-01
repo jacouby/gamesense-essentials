@@ -36,7 +36,7 @@ jobs:
     - name: Build the project and create MSI
       run: |
         ./gradlew clean build
-        ./gradlew jpackage --verbose
+        ./gradlew jpackage
 
     - name: Upload MSI Artifact
       uses: actions/upload-artifact@v3

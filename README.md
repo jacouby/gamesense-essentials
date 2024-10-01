@@ -1,4 +1,4 @@
-# gamesense-essentials
+# gamesense-essentials f
 [![Downloads](https://img.shields.io/github/downloads/mtricht/gamesense-essentials/total.svg)](https://github.com/mtricht/gamesense-essentials/releases)
 
 Essential OLED integrations for SteelSeries GG.

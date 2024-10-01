@@ -20,6 +20,7 @@ import kotlin.math.roundToInt
 class WindowsDataFetcher() : DataFetcher {
 
     private var iTunesIsRunning = false
+    private var appleMusicIsRunning = false
     private var iTunes: ActiveXComponent? = null
     private var iTunesTimeout = 0
     private var masterVolumeTimeout = 0
@@ -36,13 +37,14 @@ class WindowsDataFetcher() : DataFetcher {
     override fun getCurrentSong(): String? {
         return arrayOf(
             getPotentialSong(),
-            getiTunesSongName(),
+            getTrackFromiTunesOrAppleMusic(),
             getFoobarSongName()
         ).firstOrNull(String::isNotBlank)
     }
 
     private fun getPotentialSong(): String {
         iTunesIsRunning = false
+        appleMusicIsRunning = false
         var song = ""
         val callback = WinUser.WNDENUMPROC { hwnd, _ ->
             val pointer = IntByReference()
@@ -68,8 +70,11 @@ class WindowsDataFetcher() : DataFetcher {
                     }
                 }
             }
-            if (processPath.endsWith("iTunes.exe") || processPath.endsWith("AppleMusic.exe")) {
+            if (processPath.endsWith("iTunes.exe")) {
                 iTunesIsRunning = true
+            }
+            if (processPath.endsWith("AppleMusic.exe")) {
+                appleMusicIsRunning = true
             }
             Kernel32.INSTANCE.CloseHandle(process)
             true
@@ -78,8 +83,8 @@ class WindowsDataFetcher() : DataFetcher {
         return song
     }
 
-    private fun getiTunesSongName(): String {
-        if (!iTunesIsRunning) {
+    private fun getTrackFromiTunesOrAppleMusic(): String {
+        if (!iTunesIsRunning && !appleMusicIsRunning) {
             return ""
         }
         if (iTunes == null) {
@@ -89,17 +94,20 @@ class WindowsDataFetcher() : DataFetcher {
             }
             ComThread.InitMTA(true)
             try {
-                // Try to connect to iTunes first, if it fails, try Apple Music
-                iTunes = try {
-                    ActiveXComponent("iTunes.Application")
-                } catch (e: ComFailException) {
-                    ActiveXComponent("AppleMusic.Application")
+                // First, try to connect to iTunes if it's running
+                if (iTunesIsRunning) {
+                    iTunes = ActiveXComponent("iTunes.Application")
+                } else if (appleMusicIsRunning) {
+                    // If iTunes isn't running but Apple Music is, connect to Apple Music
+                    iTunes = ActiveXComponent("AppleMusic.Application")
                 }
             } catch (e: ComFailException) {
+                // If connection to both fails, set timeout and exit
                 iTunesTimeout = Tick.msToTicks(1000)
                 return ""
             }
         }
+
         var song = ""
         try {
             if (Dispatch.get(iTunes, "PlayerState").int == 1) {
@@ -109,6 +117,7 @@ class WindowsDataFetcher() : DataFetcher {
                 item?.safeRelease()
             }
         } catch (ec: ComFailException) {
+            // Set timeout and reset if failure occurs
             iTunesTimeout = Tick.msToTicks(1000)
             iTunes = null
         }

@@ -68,7 +68,7 @@ class WindowsDataFetcher() : DataFetcher {
                     }
                 }
             }
-            if (processPath.endsWith("iTunes.exe")) {
+            if (processPath.endsWith("iTunes.exe") || processPath.endsWith("AppleMusic.exe")) {
                 iTunesIsRunning = true
             }
             Kernel32.INSTANCE.CloseHandle(process)
@@ -87,8 +87,18 @@ class WindowsDataFetcher() : DataFetcher {
                 --iTunesTimeout
                 return ""
             }
-            ComThread.InitMTA(true);
-            iTunes = ActiveXComponent("iTunes.Application")
+            ComThread.InitMTA(true)
+            try {
+                // Try to connect to iTunes first, if it fails, try Apple Music
+                iTunes = try {
+                    ActiveXComponent("iTunes.Application")
+                } catch (e: ComFailException) {
+                    ActiveXComponent("AppleMusic.Application")
+                }
+            } catch (e: ComFailException) {
+                iTunesTimeout = Tick.msToTicks(1000)
+                return ""
+            }
         }
         var song = ""
         try {
@@ -99,9 +109,6 @@ class WindowsDataFetcher() : DataFetcher {
                 item?.safeRelease()
             }
         } catch (ec: ComFailException) {
-            // This probably means iTunes was closed. However, it takes some time for iTunes
-            // to "really" close. Wait 1 second, before trying to connect again.
-            // Else iTunes would just close and reopen immediately.
             iTunesTimeout = Tick.msToTicks(1000)
             iTunes = null
         }
@@ -119,5 +126,4 @@ class WindowsDataFetcher() : DataFetcher {
         }
         return text.replace("playing: ", "")
     }
-
 }

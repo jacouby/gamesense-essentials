@@ -1,4 +1,4 @@
-name: Build MSI Installer
+name: Build MSI Installer?
 
 on:
   push:
